@@ -1,0 +1,23 @@
+{
+  "name": "flipper-plugin-mmkv-viewer",
+  "version": "1.0.1",
+  "description": "MMKV Viewer for Flipper",
+  "homepage": "https://github.com/ddyos/flipper-plugin-mmkv-viewer",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ddyos/flipper-plugin-mmkv-viewer.git"
+  },
+  "main": "index.js",
+  "license": "MIT",
+  "keywords": [
+    "flipper-plugin",
+    "mmkv"
+  ],
+  "files": [
+    "index.js"
+  ],
+  "dependencies": {
+    "lodash": "^4.17.13"
+  },
+  "title": "MMKV Viewer"
+}
