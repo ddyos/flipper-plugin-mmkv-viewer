@@ -13,11 +13,11 @@ import {
   ManagedDataInspector,
   styled,
   Select,
-  Button, 
+  Button,
 } from 'flipper';
 import {FlipperPlugin} from 'flipper';
 
-const {clone} = require('lodash');
+const {clone, set} = require('lodash');
 
 type SharedPreferencesChangeEvent = {|
   preferences: string,
@@ -109,24 +109,19 @@ export default class extends FlipperPlugin<SharedPreferencesState> {
   };
 
   init() {
-    this.refresh()
+    this.refresh();
   }
 
   onSharedPreferencesChanged = (path: Array<string>, value: any) => {
-    const selectedPreferences = this.state.selectedPreferences;
-    if (selectedPreferences == null) {
-      return;
+    const {selectedPreferences, sharedPreferences} = this.state;
+    if (!selectedPreferences || !sharedPreferences[selectedPreferences]) {
+      return null;
     }
-    const entry = this.state.sharedPreferences[selectedPreferences];
-    if (entry == null) {
-      return;
-    }
-
+    const entry = sharedPreferences[selectedPreferences];
     const values = entry.preferences;
     let newValue = value;
-    if (path.length === 2 && values) {
-      newValue = clone(values[path[0]]);
-      newValue[path[1]] = value;
+    if (path.length > 1 && values) {
+      newValue = set(values[path[0]], path.slice(1), value);
     }
     this.client
       .call('setSharedPreference', {
@@ -150,15 +145,15 @@ export default class extends FlipperPlugin<SharedPreferencesState> {
     });
   };
 
-refresh = () => {
+  refresh = () => {
     this.client
-    .call('getAllSharedPreferences')
-    .then((results: {[name: string]: SharedPreferences}) => {
-      Object.entries(results).forEach(([name, prefs]) => {
-        const update = {name: name, preferences: prefs};
-        this.dispatchAction({update, type: 'UpdateSharedPreferences'});
+      .call('getAllSharedPreferences')
+      .then((results: {[name: string]: SharedPreferences}) => {
+        Object.entries(results).forEach(([name, prefs]) => {
+          const update = {name: name, preferences: prefs};
+          this.dispatchAction({update, type: 'UpdateSharedPreferences'});
+        });
       });
-    });
 
     this.client.subscribe(
       'sharedPreferencesChange',
@@ -169,15 +164,23 @@ refresh = () => {
   };
 
   render() {
-    const selectedPreferences = this.state.selectedPreferences;
-    if (selectedPreferences == null) {
+    const {selectedPreferences, sharedPreferences} = this.state;
+    if (!selectedPreferences || !sharedPreferences[selectedPreferences]) {
       return null;
     }
+    const entry = sharedPreferences[selectedPreferences];
 
-    const entry = this.state.sharedPreferences[selectedPreferences];
-    if (entry == null) {
-      return null;
-    }
+    let parsed = entry.preferences || {};
+    try {
+      for (const key in parsed) {
+        try {
+          parsed[key] = JSON.parse(parsed[key]);
+          for (const k in parsed[key]) {
+            parsed[key][k] = JSON.parse(parsed[key][k]);
+          }
+        } catch (err) {}
+      }
+    } catch (err) {}
 
     return (
       <RootColumn grow={true}>
@@ -190,14 +193,12 @@ refresh = () => {
                 obj[item] = item;
                 return obj;
               }, {})}
-            selected={this.state.selectedPreferences}
+            selected={selectedPreferences}
             onChange={this.onSharedPreferencesSelected}
           />
         </Heading>
         <ButtonGroupContainer>
-          <Button 
-            onClick={this.refresh}
-            compact={true}>
+          <Button onClick={this.refresh} compact={true}>
             Refresh
           </Button>
         </ButtonGroupContainer>
@@ -207,8 +208,9 @@ refresh = () => {
               <span style={{marginRight: '16px'}}>Inspector</span>
             </Heading>
             <ManagedDataInspector
-              data={entry.preferences}
+              data={parsed}
               setValue={this.onSharedPreferencesChanged}
+              collapsed
             />
           </InspectorColumn>
         </FlexRow>
