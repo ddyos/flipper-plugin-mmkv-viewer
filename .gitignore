@@ -1,3 +1,9 @@
+# Modules
+node_modules
+
+# Bundling output
+dist
+
 # Built application files
 *.apk
 *.aar
