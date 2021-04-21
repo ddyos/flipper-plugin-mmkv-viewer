@@ -5,6 +5,7 @@ import com.facebook.flipper.core.FlipperConnection
 import com.facebook.flipper.core.FlipperObject
 import com.facebook.flipper.core.FlipperPlugin
 import com.tencent.mmkv.MMKV
+import java.io.File
 import java.util.*
 
 /**
@@ -18,13 +19,29 @@ class MMKVFlipperPlugin : FlipperPlugin {
         private fun buildDescriptorForDefault(): List<MMKVDescriptor> {
             val descriptors: MutableList<MMKVDescriptor> = ArrayList()
             descriptors.add(MMKVDescriptor(MMKV.defaultMMKV().mmapID()))
+
+            descriptors.addAll(getAllMMKVDescriptors())
             return descriptors
+        }
+
+        fun getAllMMKVDescriptors(
+            rootFolder: String = MMKV.getRootDir(),
+            mmkvDescriptorMode: Int = MMKV.SINGLE_PROCESS_MODE,
+            cryptKey: String? = null
+        ): List<MMKVDescriptor>{
+
+            val rootDirFile = File(rootFolder)
+            if (!rootDirFile.isDirectory) return emptyList()
+
+            return rootDirFile.listFiles { file -> file.extension != "crc" }
+                .map { MMKVDescriptor(it.name, mmkvDescriptorMode, cryptKey) }
+                ?: emptyList()
         }
 
     }
 
     private var mConnection: FlipperConnection? = null
-    private var mMMKVMap: MutableMap<MMKV, MMKVDescriptor>? = null
+    private val mMMKVMap: MutableMap<MMKV, MMKVDescriptor> = mutableMapOf()
 
     constructor (): this(buildDescriptorForDefault())
 
@@ -49,19 +66,18 @@ class MMKVFlipperPlugin : FlipperPlugin {
      * preferences to retrieve.
      */
     constructor(descriptors: List<MMKVDescriptor>) {
-        mMMKVMap = HashMap(descriptors.size)
         for (descriptor in descriptors) {
             val preferences = MMKV.mmkvWithID(descriptor.name, descriptor.mode, descriptor.cryptKey)
-            mMMKVMap!![preferences] = descriptor
+            mMMKVMap[preferences] = descriptor
         }
     }
 
-    override fun getId(): String? {
+    override fun getId(): String {
         return PLUGIN_ID
     }
 
     private fun getMMKVFor(name: String): MMKV {
-        for ((key, value) in mMMKVMap!!) {
+        for ((key, value) in mMMKVMap) {
             if (value.name == name) {
                 return key
             }
@@ -122,9 +138,9 @@ class MMKVFlipperPlugin : FlipperPlugin {
 
     override fun onConnect(connection: FlipperConnection) {
         mConnection = connection
-        connection.receive("getAllSharedPreferences") { params, responder ->
+        connection.receive("getAllSharedPreferences") { _, responder ->
             val builder = FlipperObject.Builder()
-            for ((key, value) in mMMKVMap!!) {
+            for ((key, value) in mMMKVMap) {
                 builder.put(value.name, getFlipperObjectFor(key))
             }
             responder.success(builder.build())
