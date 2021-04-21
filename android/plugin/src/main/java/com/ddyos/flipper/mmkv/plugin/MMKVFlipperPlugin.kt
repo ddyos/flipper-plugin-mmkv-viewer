@@ -33,9 +33,9 @@ class MMKVFlipperPlugin : FlipperPlugin {
             val rootDirFile = File(rootFolder)
             if (!rootDirFile.isDirectory) return emptyList()
 
-            return rootDirFile.listFiles{ file -> file.extension != "crc" }.map {
-                MMKVDescriptor(it.name, mmkvDescriptorMode, cryptKey)
-            }
+            return rootDirFile.listFiles { file -> file.extension != "crc" }
+                .map { MMKVDescriptor(it.name, mmkvDescriptorMode, cryptKey) }
+                ?: emptyList()
         }
 
     }
